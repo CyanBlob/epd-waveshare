@@ -1,6 +1,6 @@
 use crate::color::TriColor;
 use crate::epd7in5_v3::{DEFAULT_BACKGROUND_COLOR, HEIGHT, NUM_DISPLAY_BITS, WIDTH};
-use crate::graphics::{DisplayRotation, TriDisplay};
+use crate::graphics::{DisplayRotation, TriDisplayCompact};
 use embedded_graphics_core::prelude::*;
 
 /// Full size buffer for use with the 7in5 EPD
@@ -8,14 +8,14 @@ use embedded_graphics_core::prelude::*;
 /// Can also be manually constructed:
 /// `buffer: [DEFAULT_BACKGROUND_COLOR.get_byte_value(); 2 * NUM_DISPLAY_BITS as usize]`
 pub struct Display7in5 {
-    buffer: [u8; 2 * NUM_DISPLAY_BITS as usize],
+    buffer: [u8; 1 * NUM_DISPLAY_BITS as usize],
     rotation: DisplayRotation,
 }
 
 impl Default for Display7in5 {
     fn default() -> Self {
         Display7in5 {
-            buffer: [DEFAULT_BACKGROUND_COLOR.get_byte_value(); 2 * NUM_DISPLAY_BITS as usize],
+            buffer: [DEFAULT_BACKGROUND_COLOR.get_byte_value(); 1 * NUM_DISPLAY_BITS as usize],
             rotation: DisplayRotation::default(),
         }
     }
@@ -47,7 +47,7 @@ impl OriginDimensions for Display7in5 {
     }
 }
 
-impl TriDisplay for Display7in5 {
+impl TriDisplayCompact for Display7in5 {
     fn buffer(&self) -> &[u8] {
         &self.buffer
     }
@@ -69,25 +69,24 @@ impl TriDisplay for Display7in5 {
     }
 
     fn bw_buffer(&self) -> &[u8] {
-        &self.buffer[0..self.chromatic_offset()]
+        &self.buffer
     }
 
     fn chromatic_buffer(&self) -> &[u8] {
-        &self.buffer[self.chromatic_offset()..]
+        &self.buffer
     }
 
-    fn clear_buffer(&mut self, background_color: TriColor) {
-        let offset = self.chromatic_offset();
+    fn clear_bw_buffer(&mut self, background_color: TriColor) {
+        for (_, elem) in self.get_mut_buffer().iter_mut().enumerate() {
+            *elem = background_color.get_byte_value();
+        }
+    }
 
-        for (i, elem) in self.get_mut_buffer().iter_mut().enumerate() {
-            if i < offset {
-                *elem = background_color.get_byte_value();
-            }
+    fn clear_chromatic_buffer(&mut self, background_color: TriColor) {
+        for (_, elem) in self.get_mut_buffer().iter_mut().enumerate() {
             // for V3, white in the BW buffer is 255. But in the chromatic buffer 255 is red.
             // This means that the chromatic buffer needs to be inverted when clearing
-            else {
-                *elem = background_color.get_byte_value() ^ 0xFF;
-            }
+            *elem = background_color.get_byte_value() ^ 0xFF;
         }
     }
 }
@@ -101,7 +100,7 @@ mod tests {
     #[test]
     fn graphics_size() {
         let display = Display7in5::default();
-        assert_eq!(display.buffer().len(), 96000);
+        assert_eq!(display.buffer().len(), 48000);
     }
 
     // test default background color on all bytes
